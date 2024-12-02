@@ -1,6 +1,6 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-var data = File.ReadAllLines(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "actualInput.txt"));
+var data = File.ReadAllLines(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sample.txt"));
 var (left, right) = ParsePuzzleInput(data);
 (int[], int[]) ParsePuzzleInput(string[] inputData)
 {
