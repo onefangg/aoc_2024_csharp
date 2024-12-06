@@ -1,8 +1,7 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-
-var data = File.ReadAllLines(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "day6_sample.txt"));
-var grid = data.Select(row => row.ToCharArray()).ToArray();
+var data = File.ReadAllLines(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "day6.txt"));
+var gridData = data.Select(row => row.ToCharArray()).ToArray();
 
 (int, int) GetCoordinates(char[][] gridData, char ele)
 {
@@ -13,99 +12,145 @@ var grid = data.Select(row => row.ToCharArray()).ToArray();
             if (ele == gridData[i][j]) return (i, j);
         }
     }
+
     // cannot find
     return (-1, -1);
-} 
-var guardStartPos = GetCoordinates(grid, '^');
-var guardFacingDirection = Direction.Up;
-
-var magicList = new List<(int, int)> ();
-var width = grid[0].Length;
-(int, int) GetNewPositionAfterTravelling(char[][] gridData, (int, int) startPos, Direction travelDirection)
-{
-    (int, int) newPos = (-1, -1);
-    var (rowIdx, colIdx) = startPos;
-
-    
-    switch (travelDirection)
-    {
-        case Direction.Up:
-        {
-            newPos = (Enumerable.Range(0, rowIdx).Reverse().FirstOrDefault(row => gridData[row][colIdx] == '#')+1, colIdx);
-            Array.ForEach(Enumerable.Range(rowIdx, rowIdx - newPos.Item1).ToArray(), i => magicList.Add((i, colIdx)));
-            break;
-        }
-        case Direction.Down:
-        {
-            newPos = (Enumerable.Range(rowIdx+1, (gridData.Length-rowIdx-1)).FirstOrDefault(row => gridData[row][colIdx] == '#')-1, colIdx);
-            Array.ForEach(Enumerable.Range(rowIdx, newPos.Item1 - rowIdx).ToArray(), i => magicList.Add((i, colIdx)));
-            break;
-        }
-        case Direction.Left:
-        {
-            newPos = (rowIdx, 1 + Enumerable.Range(0, colIdx).Reverse().FirstOrDefault(col => gridData[rowIdx][col] == '#'));
-            Array.ForEach(Enumerable.Range(colIdx, colIdx - newPos.Item2).ToArray(), i => magicList.Add((rowIdx, i)));
-            break;
-        }
-        case Direction.Right:
-        {
-            newPos = (rowIdx, -1 + Enumerable.Range(colIdx+1, (width-colIdx-1)).FirstOrDefault(col => gridData[rowIdx][col] == '#'));
-            Array.ForEach(Enumerable.Range(colIdx, newPos.Item2 - colIdx).ToArray(), i => magicList.Add((rowIdx, i)));
-            break;
-        }
-        
-    };
-    return newPos;
 }
+
+Direction Turn(Direction direction)
+{
+    switch (direction)
+    {
+        case Direction.Up: return Direction.Right;
+        case Direction.Right: return Direction.Down;
+        case Direction.Down: return Direction.Left;
+        case Direction.Left: return Direction.Up;
+    }
+
+    return direction;
+}
+
+(HashSet<(int, int)>, bool) Walk(Direction initDirection, (int, int) initCoordinates, char[][] grid)
+{
+    var (currRow, currCol) = initCoordinates;
+    HashSet<(int, int,Direction)> uniqueWalked = new HashSet<(int, int,Direction)>() { (currRow, currCol, initDirection) };
+    HashSet<(int, int)> uniqueCoords = new HashSet<(int, int)>() { (currRow, currCol) };
+    var currDirection = initDirection;
+    var hasCollision = false;
+    while ((currRow >= 0 && currRow < grid.Length) || (currCol >= 0 && currCol < grid[0].Length))
+    {
+        try
+        {
+            if (currDirection == Direction.Up)
+            {
+                if (grid[currRow - 1][currCol] != '#')
+                {
+                    currRow--;
+                    uniqueCoords.Add((currRow, currCol));
+                    if (uniqueWalked.Contains((currRow, currCol, currDirection)))
+                    {
+                        hasCollision = true;
+                        break;
+                    }
+                    uniqueWalked.Add((currRow, currCol, currDirection));
+                }
+                else
+                {
+                    currDirection = Turn(currDirection);
+                }
+            }
+            else if (currDirection == Direction.Right)
+            {
+                if (grid[currRow][currCol + 1] != '#')
+                {
+                    currCol++;
+                    uniqueCoords.Add((currRow, currCol));
+                    if (uniqueWalked.Contains((currRow, currCol, currDirection)))
+                    {
+                        hasCollision = true;
+                        break;
+                    }
+                    uniqueWalked.Add((currRow, currCol, currDirection));
+                }
+                else
+                {
+                    currDirection = Turn(currDirection);
+                }
+            }
+            else if (currDirection == Direction.Down)
+            {
+                if (grid[currRow + 1][currCol] != '#')
+                {
+                    currRow++;
+                    uniqueCoords.Add((currRow, currCol));
+                    if (uniqueWalked.Contains((currRow, currCol, currDirection)))
+                    {
+                        hasCollision = true;
+                        break;
+                    }
+                    uniqueWalked.Add((currRow, currCol, currDirection));
+                }
+                else
+                {
+                    currDirection = Turn(currDirection);
+                }
+            }
+            else if (currDirection == Direction.Left)
+            {
+                if (grid[currRow][currCol - 1] != '#')
+                {
+                    currCol--;
+                    uniqueCoords.Add((currRow, currCol));
+                    if (uniqueWalked.Contains((currRow, currCol, currDirection)))
+                    {
+                        hasCollision = true;
+                        break;
+                    }
+                    uniqueWalked.Add((currRow, currCol, currDirection));
+                }
+                else
+                {
+                    currDirection = Turn(currDirection);
+                }
+            }
+        }
+        catch
+        {
+            break;
+        }
+    }
+
+    return (uniqueCoords, hasCollision);
+}
+
+
+var (startRow, startCol) = GetCoordinates(gridData, '^');
+var (uniqueCoordsWalked, _) = Walk(Direction.Up, (startRow, startCol), gridData);
+Console.WriteLine($"{uniqueCoordsWalked.Count}");
 
 var res = 0;
+var uniqueCoordsWalkedIter = uniqueCoordsWalked.Except([(startRow, startCol)]).ToArray();
+var collidedCoords = new HashSet<(int, int)>();
 
-var starPos = guardStartPos;
-var starDir = guardFacingDirection;
-while (true) {
-    try
-    {
-        var (startPosRow, startPosCol) = starPos;
-        var (newPosRow, newPosCol) = GetNewPositionAfterTravelling(grid, starPos, starDir);
+for (var idx=0;idx<uniqueCoordsWalkedIter.Length; idx++) {
 
-        var distanceTravelled = Math.Max(Math.Abs(newPosRow - startPosRow), Math.Abs(newPosCol - startPosCol));
-        Console.WriteLine($"distance travelled {distanceTravelled}");
-        res += distanceTravelled;
-        starPos = (newPosRow, newPosCol);
-        if (starDir == Direction.Up) starDir = Direction.Right;
-        else if (starDir == Direction.Right) starDir = Direction.Down;
-        else if (starDir == Direction.Down) starDir = Direction.Left;
-        else if (starDir == Direction.Left) starDir = Direction.Up;
-    }
-    catch
+    var (editRow, editCol) = uniqueCoordsWalkedIter[idx];
+    var editGridData = new char[gridData.Length][];
+    for (int i = 0; i < gridData.Length; i++)
     {
-        var (startPosRow, startPosCol) = starPos;
-        if (starDir == Direction.Up)
-        {
-            
-            magicList.AddRange(Enumerable.Range(0, startPosRow+1).Select(x => (x, startPosCol)));
-        }
-        else if (starDir == Direction.Right)
-        {
-            magicList.AddRange(Enumerable.Range(startPosCol, width-startPosCol+1).Select(x => (startPosRow, x)));
-        }
-        else if (starDir == Direction.Down)
-        {
-            magicList.AddRange(Enumerable.Range(startPosCol, width-startPosCol+1).Select(x => (x, startPosCol)));
-        }
-        else if (starDir == Direction.Left)
-        {
-            
-        }
         
-        break;
+        editGridData[i] = new char[gridData[i].Length];
+        for (int j = 0; j < gridData[i].Length; j++)
+        {
+            if (i == editRow && j == editCol) editGridData[i][j] = '#';
+            else editGridData[i][j] = gridData[i][j];
+        }
     }
+
+    var (_, collision) = Walk(Direction.Up,(startRow, startCol),  editGridData);
+    if (collision) res++;
 }
-
-Console.WriteLine(res);
-
-
-
+Console.WriteLine($"{res}");
 
 public enum Direction
 {
