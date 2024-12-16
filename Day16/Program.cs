@@ -1,95 +1,128 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-var data = File.ReadAllLines(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "day16_sample.txt"));
+using System.Drawing;
+
+var data = File.ReadAllLines(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "day16.txt"));
 var gridData = data.Select(x => x.ToCharArray()).ToArray();
 
-var reindeerStartPos = FindPos(gridData, 'S');
-var targetEndPos = FindPos(gridData, 'E');
-var minScore = int.MaxValue;
-
-// (row, col, row_direction, col_direction)
-var currPos = (reindeerStartPos.Item1, reindeerStartPos.Item2, 1, 0);
-var enqueuePath = new Queue<(int, int, int, int)>([currPos]);
-var branches = new Queue<(int, int, int, int)>();
-
-while (currPos.Item1 != targetEndPos.Item1 && currPos.Item2 == targetEndPos.Item2)
+var distance = InitDistanceGrid(gridData);
+var visited = InitVisitedGrid(gridData);
+var (startX, startY) = FindPos(gridData, 'S');
+var (endX, endY) = FindPos(gridData, 'E');
+var linkVertices = new Dictionary<(int,int), (int,int)>();
+var priorityQueue = new SortedSet<Vertex>();
+var minCost = int.MaxValue;
+priorityQueue.Add(new Vertex()
 {
-    var getRelativeNeighbours = GetPossibleNeighbours(currPos, gridData);
-    
-    
-    
-    if (getRelativeNeighbours.Count > 1)
-    {
-        branches.Enqueue();
-    }
-    
-    
-}
+    Row = startX,
+    Col = startY,
+    Dr = 0,
+    Dc = 1,
+    Cost = 0
+});
+distance[startX][startY] = 0;
 
-
-List<(int, int, int, int)> GetPossibleNeighbours((int, int, int, int) currNode, char[][] grid)
+while (priorityQueue.Any())
 {
-    var neighbours = new List<(int, int, int, int)>();
-    var (currRow, currCol, currDr, currDc) = currNode;
-
-    var (lc, lr) = TurnLeft(currDr, currDc);
-    var (rc, rr) = TurnRight(currDr, currDc);
-    // move forward ( in current direction )
-
-    (int, int, int, int)[] goToDirections = [
-        (currRow+currDr, currCol+currDc, currDr, currDc), // go straight
-        (currRow+currDr, currCol+currDc, lc, lr), // go left ( relative to current direction )
-        (currRow+currDr, currCol+currDc, rc, rr), // go right ( relative to current direction )
+    var curr = priorityQueue.Min()!;
+    priorityQueue.Remove(curr);
+    if (visited[curr.Row][curr.Col]) continue;
+    visited[curr.Row][curr.Col] = true;
+    
+    // VisualiseGrid(gridData, visited);
+    (int,int)[] directions = [
+        (curr.Dr, curr.Dc),
+        curr.TurnLeft(),
+        curr.TurnRight(),
     ];
 
-    foreach (var neighbour in goToDirections)
+    if (gridData[curr.Row][curr.Col] == 'E')
     {
-        var row = neighbour.Item1;
-        var col = neighbour.Item2;
-        if (grid[row][col] != '#')
+        minCost = distance[curr.Row][curr.Col];
+        break;
+    }
+    
+    for (var idx = 0; idx < directions.Length; idx++)
+    {
+        var (dr, dc) = directions[idx];
+        var nextRow = curr.Row + dr;
+        var nextCol = curr.Col + dc;
+        if (gridData[nextRow][nextCol] != '#')
         {
-            neighbours.Add(neighbour);
+            var newDist = curr.Cost + (idx == 0 ? 1 : 1001);
+            if (newDist < distance[nextRow][nextCol])
+            {
+                distance[nextRow][nextCol] = newDist;
+                linkVertices[(nextRow, nextCol)] = (curr.Row, curr.Col);
+                priorityQueue.Add(new Vertex()
+                {
+                    Row = nextRow,
+                    Col = nextCol,
+                    Dr = dr,
+                    Dc = dc,
+                    Cost = newDist
+                });    
+            }
         }
+
     }
-    return neighbours;
 }
 
-(int, int) TurnLeft(int dr, int dc)
-{
-    if (dr == 0 && dc == 1)
-    {
-        return (-1, 0);
-    } else if (dr == 0 && dc == -1)
-    {
-        return (1, 0);
-    }else if (dr == 1 && dc == 0) // facing south -> east
-    {
-        return (0, 1);
-    }else if (dr == -1 && dc == 0) // facing north -> west
-    {
-        return (0, -1);
-    }
+// for (var i = 0; i < distance.Length; i++)
+// {
+//     for (var j = 0; j < distance[i].Length; j++)
+//     {
+//         if (distance[i][j] == int.MaxValue)
+//         {
+//             Console.Write("<>");
+//         }
+//         else
+//         {
+//             Console.Write(distance[i][j]);    
+//         }
+//         Console.Write(",");
+//     }
+//     Console.WriteLine();
+// }
+Console.WriteLine($"Part 1: {minCost}");
 
-    throw new Exception();
+
+void VisualiseGrid(char[][] grid, bool[][] visited)
+{
+    for (int i = 0; i < grid.Length; i++)
+    {
+        for (int j = 0; j < grid[i].Length; j++)
+        {
+            if (grid[i][j] == '#')
+            {
+                Console.Write(grid[i][j]);
+            } else if (visited[i][j])
+            {
+                Console.Write('O');
+            }
+            else
+            {
+                Console.Write('.');
+            }
+        }
+        Console.WriteLine();
+    }
 }
 
-(int, int) TurnRight(int dr, int dc)
+int[][] InitDistanceGrid(char[][] grid)
 {
-    if (dr == 0 && dc == 1)
+    var distance = new int[grid.Length][];
+    for (int r = 0; r < grid.Length; r++)
     {
-        return (1, 0);
-    } else if (dr == 0 && dc == -1)
-    {
-        return (-1, 0);
-    }else if (dr == 1 && dc == 0) // facing south -> west
-    {
-        return (0, -1);
-    }else if (dr == -1 && dc == 0) // facing north -> east
-    {
-        return (0, 1);
+        
+        var row = new int[grid[r].Length];
+        for (int c = 0; c < grid[r].Length; c++)
+        {
+            row[c] = int.MaxValue;
+        }
+        distance[r] = row;
     }
-
-    throw new Exception();
+    return distance;
 }
 
 (int, int) FindPos(char[][] grid, char ele)
@@ -104,8 +137,58 @@ List<(int, int, int, int)> GetPossibleNeighbours((int, int, int, int) currNode, 
     return (-1, -1);
 }
 
-struct Pathing
+bool[][] InitVisitedGrid(char[][] grid)
 {
-    public int Movements {get;set;}
-    public int Turns {get;set;}
+    var visited = new bool[grid.Length][];
+    for (int r = 0; r < grid.Length; r++)
+    {
+        
+        var row = new bool[grid[r].Length];
+        for (int c = 0; c < grid[r].Length; c++)
+        {
+            if (grid[r][c] == '#')
+            {
+                row[c] = false;
+            }
+            else
+            {
+                row[c] = false;
+            }
+        }
+        visited[r] = row;
+    }
+    return visited;
 }
+
+class Vertex : IComparable<Vertex>
+{
+    public int Row { get; set; }
+    public int Col { get; set; }
+    public int Dr { get; set; }
+    public int Dc { get; set; }
+    public int Cost { get; set; }
+
+    public (int, int) TurnLeft()
+    {
+        return (-1 * Dc, Dr);
+    }
+    public (int, int) TurnRight()
+    {
+        return (Dc, Dr * -1);
+    }
+
+    public int CompareTo(Vertex other)
+    {
+        if (Cost == other.Cost)
+        {
+            if (Row == other.Row)
+            {
+                return Col.CompareTo(other.Col);
+            }
+            return Row.CompareTo(other.Row);
+        }
+        return Cost.CompareTo(other.Cost);
+    }
+    
+}
+
