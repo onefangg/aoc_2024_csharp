@@ -3,71 +3,68 @@
 var (startX, startY) = (0, 0);
 // testing sample
 // var (endX, endY) = (6, 6);
-// var n = 12;
+// var nIterations = 12;
 
 var (endX, endY) = (70, 70);
 var nIterations = 1024;
 
 var fallingBytes = data.Select(x =>x.Split(",").Select(int.Parse).ToArray()).ToArray();
-var gridData = CreateGridAfterN(fallingBytes, endX, endY, nIterations);
-var dist = CreatDistanceGrid(endX, endY);
-var visited = CreateVisitedGrid(endX, endY);
-dist[startX][startY] = 0;
-visited[startX][startY] = true;
-
-var q = new Queue<(int, int)>([(startX, startY)]);
-while (q.Count > 0)
+(int, bool) RunDfs(int[][] inputFalling, int widthInclusive, int heightInclusive, int takeUntil)
 {
-    var curr = q.Dequeue();
-    
-    (int, int)[] directions = [(-1, 0), (0, -1), (1,0), (0, 1)];
-    var currDist = dist[curr.Item1][curr.Item2];
-    if (curr.Item1 == endX && curr.Item2 == endY)
-    {
-        break;
-    }
-    
-    foreach (var dir in directions)
-    {
-        try
-        {
-            var nextX = curr.Item1 + dir.Item1;
-            var nextY = curr.Item2 + dir.Item2;
+    var gridData = CreateGridAfterN(inputFalling, widthInclusive, heightInclusive, takeUntil);
+    var dist = CreatDistanceGrid(widthInclusive, heightInclusive);
+    var visited = CreateVisitedGrid(widthInclusive, heightInclusive);
+    dist[startX][startY] = 0;
+    visited[startX][startY] = true;
 
-            if (!visited[nextX][nextY] && gridData[nextX][nextY] == '.')
+    var q = new Queue<(int, int)>([(startX, startY)]);
+    while (q.Count > 0)
+    {
+        var curr = q.Dequeue();
+    
+        (int, int)[] directions = [(-1, 0), (0, -1), (1,0), (0, 1)];
+        var currDist = dist[curr.Item1][curr.Item2];
+        if (curr.Item1 == widthInclusive && curr.Item2 == endY)
+        {
+            break;
+        }
+    
+        foreach (var dir in directions)
+        {
+            try
             {
-                visited[nextX][nextY] = true;
-                dist[nextX][nextY] = currDist + 1;
-                q.Enqueue((nextX, nextY));
+                var nextX = curr.Item1 + dir.Item1;
+                var nextY = curr.Item2 + dir.Item2;
+
+                if (!visited[nextX][nextY] && gridData[nextX][nextY] == '.')
+                {
+                    visited[nextX][nextY] = true;
+                    dist[nextX][nextY] = currDist + 1;
+                    q.Enqueue((nextX, nextY));
+                }
+            }
+            catch
+            {
             }
         }
-        catch
-        {
-            continue;
-        }
-
     }
+    return (dist[widthInclusive][heightInclusive], visited[widthInclusive][heightInclusive]);
 }
 
-// for (int i = 0; i < gridData.Length; i++)
-// {
-//     for (int j = 0; j < gridData.Length; j++)
-//     {
-//         Console.Write(gridData[i][j] + " ");
-//     }
-//     Console.WriteLine();
-// }
+Console.WriteLine($"Part 1: {RunDfs(fallingBytes, endX, endY, nIterations).Item1}");
+var idx = nIterations + 1;
+while (idx < fallingBytes.Length)
+{
+    var (_,  isNotBlocked) = RunDfs(fallingBytes, endX, endY, idx);
 
-// for (int i = 0; i < dist.Length; i++)
-// {
-//     for (int j = 0; j < dist.Length; j++)
-//     {
-//         Console.Write(dist[i][j] + " ");
-//     }
-//     Console.WriteLine();
-// }
+    if (!isNotBlocked)
+    {
+        Console.WriteLine($"Part 2: {fallingBytes[idx-1][0]},{fallingBytes[idx-1][1]}");
+        break;
+    }
 
-Console.WriteLine($"Part 1: {dist[endX][endY]}");
+    idx++;
+}
 
 bool[][] CreateVisitedGrid(int widthInclusive, int heightInclusive)
 {
