@@ -2,21 +2,24 @@
 var gridData = data.Select(x => x.ToCharArray()).ToArray();
 
 var distance = InitDistanceGrid(gridData);
+var distanceMap = new Dictionary<Vertex, int>();
 var visited = InitVisitedGrid(gridData);
 var (startX, startY) = FindPos(gridData, 'S');
 var (endX, endY) = FindPos(gridData, 'E');
 var linkVertices = new Dictionary<Vertex, List<Vertex>>();
 var priorityQueue = new SortedSet<Vertex>();
 var minCost = int.MaxValue;
-priorityQueue.Add(new Vertex()
+var startVertex = new Vertex()
 {
     Row = startX,
     Col = startY,
     Dr = 0,
     Dc = 1,
     Cost = 0
-});
+};
+priorityQueue.Add(startVertex);
 distance[startX][startY] = 0;
+distanceMap[startVertex] = 0;
 
 while (priorityQueue.Any())
 {
@@ -34,8 +37,10 @@ while (priorityQueue.Any())
 
     if (gridData[curr.Row][curr.Col] == 'E')
     {
-        minCost = distance[curr.Row][curr.Col];
-        break;
+        if (distance[curr.Row][curr.Col] <= minCost)
+        {
+            minCost = distance[curr.Row][curr.Col];    
+        }
     }
     
     for (var idx = 0; idx < directions.Length; idx++)
@@ -54,14 +59,8 @@ while (priorityQueue.Any())
                 Dc = dc,
                 Cost = newDist
             };
-            if (linkVertices.ContainsKey(linkedChild))
-            {
-                linkVertices[linkedChild].Add(curr);    
-            }
-            else
-            {
-                linkVertices[linkedChild] = [curr];
-            }
+            distanceMap[linkedChild] = newDist;
+            linkVertices[linkedChild] = [curr];
             if (newDist < distance[nextRow][nextCol])
             {
                 distance[nextRow][nextCol] = newDist; 
@@ -72,96 +71,54 @@ while (priorityQueue.Any())
     }
 }
 
-for (var i = 0; i < distance.Length; i++)
-{
-    for (var j = 0; j < distance[i].Length; j++)
-    {
-        if (distance[i][j] == int.MaxValue)
-        {
-            Console.Write("....");
-        }
-        else
-        {
-            Console.Write(distance[i][j]);    
-        }
-        Console.Write(",");
-    }
-    Console.WriteLine();
-}
 Console.WriteLine($"Part 1: {minCost}");
 
-
 var endNodes = linkVertices.Where(x => x.Key.Row == endX && x.Key.Col == endY)
-    .Select(x=>x.Key).ToArray();
+    .Select(x=>x.Key with { Dr = -1* x.Key.Dr, Dc = -1*x.Key.Dc}).ToArray();
 var invertQueue = new Queue<Vertex>(endNodes);
 var paths = InitFalseyGrid(gridData);
+
+var visitedAgain = new HashSet<Vertex>();
+
 while (invertQueue.Any())
 {
     var curr = invertQueue.Dequeue();
-    if (curr.Row == startX && curr.Col == startY)
-    {
-        continue;
-    }
-    if (paths[curr.Row][curr.Col])
-    {
-        continue;
-    }
     paths[curr.Row][curr.Col] = true;
-    
-    // (int,int)[] directions = [
-    //     (curr.Dr, curr.Dc),
-    //     curr.TurnLeft(),
-    //     curr.TurnRight(),
-    // ];
-    //
-    // for (var i = 0; i < directions.Length; i++)
-    // {
-    //     var nextRow = curr.Row + directions[i].Item1;
-    //     var nextCol = curr.Col + directions[i].Item2;
-    //     if (distance[nextRow][nextCol] == curr.Cost - 1 || distance[nextRow][nextCol] == curr.Cost - 1001)
-    //     {
-    //         invertQueue.Enqueue(new Vertex()
-    //         {
-    //             Row = nextRow,
-    //             Col = nextCol,
-    //             Dr = directions[i].Item1,
-    //             Dc = directions[i].Item2,
-    //             Cost = distance[nextRow][nextCol]
-    //         });
-    //         distance[nextRow][nextCol] = int.MaxValue;
-    //     }
-    // }
-    var linkedNodes = linkVertices.Where(x => x.Key == curr).SelectMany(x => x.Value).ToList();
-    foreach (var node in linkedNodes)
+    if (!visitedAgain.Add(curr) || curr.Cost<0)
     {
-        if (node.Cost == curr.Cost - 1 || node.Cost == curr.Cost - 1001)
-        {
-            invertQueue.Enqueue(node);
-        }
-}
-    
-}
-
-for (var i = 0; i < paths.Length; i++)
-{
-    for (var j = 0; j < paths[i].Length; j++)
-    {
-        if (paths[i][j])
-        {
-            Console.Write("1");
-        }
-        else
-        {
-            Console.Write("0");    
-        }
-        Console.Write(",");
+        continue;
     }
-    Console.WriteLine();
+    (int,int)[] directions = [
+        (curr.Dr, curr.Dc),
+        curr.TurnLeft(),
+        curr.TurnRight(),
+    ];
+
+    for (var i = 0; i < directions.Length; i++)
+    {
+        var nextRow = curr.Row + directions[i].Item1;
+        var nextCol = curr.Col + directions[i].Item2;
+        var reachable = distanceMap.Where(x => x.Key.Row == nextRow && x.Key.Col == nextCol).Select(x => (x.Key, x.Value)).ToArray();
+        foreach (var (distanceNode, dist) in reachable)
+        {
+            if (dist == curr.Cost - 1 || dist == curr.Cost - 1001 )
+            {
+                invertQueue.Enqueue(new Vertex()
+                {
+                    Row = nextRow,
+                    Col = nextCol,
+                    Dr = -1*distanceNode.Dr,
+                    Dc = -1*distanceNode.Dc,
+                    Cost = dist
+                });
+                
+            }
+        }
+    }
+    
 }
 
 Console.WriteLine($"Part 2: {paths.SelectMany(x => x.ToArray()).Count(x=>x)}");
-
-
 
 bool[][] InitFalseyGrid(char[][] grid)
 {
@@ -273,6 +230,14 @@ record Vertex : IComparable<Vertex>
         {
             if (Row == other.Row)
             {
+                if (Col == other.Col)
+                {
+                    if (Dr == other.Dr)
+                    {
+                        return Dc.CompareTo(other.Dc);
+                    }           
+                    return Dr.CompareTo(other.Dr);
+                }
                 return Col.CompareTo(other.Col);
             }
             return Row.CompareTo(other.Row);
