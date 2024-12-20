@@ -5,30 +5,60 @@ var data = File.ReadAllLines(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
 var availTowels = data[0].Split(", ").ToArray();
 var desiredPatterns = data[1..];
 
-var cnt = 0;
+var initCache = new Dictionary<string, long>();
+long cnt = 0;
 foreach (var design in desiredPatterns)
 {
-    var iterateThrough = new SortedSet<string>(Comparer<string>.Create((a,b)=>a.Length-b.Length));
-    iterateThrough.Add(design);
+    cnt += RecurseForPossibleDesign(design, availTowels, initCache);
     
-    while (iterateThrough.Count > 0)
+}
+
+Console.WriteLine(cnt);
+// var cnt = 0;
+// foreach (var design in desiredPatterns)
+// {
+//     var iterateThrough = new SortedSet<string>(Comparer<string>.Create((a,b)=>a.Length-b.Length)) { design };
+//
+//     while (iterateThrough.Count > 0)
+//     {
+//         var matchAgainst = iterateThrough.Min()!;
+//         iterateThrough.Remove(matchAgainst);
+//         
+//         if (matchAgainst == "")
+//         {
+//             cnt++;
+//             break;
+//         }
+//         foreach (var towel in availTowels)
+//         {
+//             if (matchAgainst.StartsWith(towel))
+//             {
+//                 iterateThrough.Add(matchAgainst[towel.Length..]);
+//             }
+//         }
+//
+//     }
+// }
+
+long RecurseForPossibleDesign(string design, string[] towels, Dictionary<string, long> cache)
+{
+    if (cache.TryGetValue(design, out var possibleDesign)) return possibleDesign;
+    if (design == string.Empty) return 1;
+
+    long sum = 0;
+    for (long i = 0; i < towels.Length; i++)
     {
-        var matchAgainst = iterateThrough.Min()!;
-        iterateThrough.Remove(matchAgainst);
-        
-        if (matchAgainst == "")
+        var towel = towels[i];
+        if (towel.Length > design.Length)
         {
-            cnt++;
-            break;
-        }
-        foreach (var towel in availTowels)
-        {
-            if (matchAgainst.StartsWith(towel))
-            {
-                iterateThrough.Add(matchAgainst[towel.Length..]);
-            }
+            continue;
         }
 
+        if (design.StartsWith(towel))
+        {
+            sum += RecurseForPossibleDesign(design[towel.Length..], towels, cache);
+        }
     }
+    cache.Add(design, sum);
+    return sum;
 }
-Console.WriteLine(cnt);
