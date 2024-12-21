@@ -1,6 +1,6 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-var data = File.ReadAllLines(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "day20_sample.txt"));
+var data = File.ReadAllLines(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "day20.txt"));
 var gridData = data.Select(r => r.ToCharArray()).ToArray();
 (int,int)[] directions = [(-1, 0), (0, -1), (1, 0), (0, 1)];
 (int, int) start = (0,0);
@@ -25,8 +25,6 @@ for (int i = 0; i < gridData.Length; i++)
     }
     visited[i] = visitedRow;
 }
-
-bool[][] p2Visited = (bool[][])visited.Clone();
 
 var orderedPath = new List<(int, int)>();
 var p1Shortcuts = new HashSet<((int, int),  (int, int))>();
@@ -58,56 +56,52 @@ while (q.Count > 0)
 }
 var p1SavingsLookup = GetCheatSavings(orderedPath, p1Shortcuts);
 var res= p1SavingsLookup.Where(x => x.Key >= 100).Sum(x => x.Value);
+Console.WriteLine($"Part 1: {res}");
 
-
-Console.WriteLine(res);
-var p2Shortcuts = new HashSet<((int, int), (int, int))>();
-var legitWalkable = orderedPath.ToHashSet();
-orderedPath.Insert(0, start);
-foreach (var anchorStart in orderedPath.Take(1))
+// part 2 - idea from: https://publish.reddit.com/embed?url=https://www.reddit.com/r/adventofcode/comments/1hicdtb/comment/m2xzyfs/ 
+var p2Q = new Queue<((int, int),int)>([(start, 0)]);
+var distanceMap = new Dictionary<(int, int), int>();
+while (p2Q.Count > 0)
 {
-    var anchorAllEndpoints = Bls(anchorStart, 20);
-    var allEmptyEndpoints = anchorAllEndpoints.Where(n => gridData[n.Item1][n.Item2]!='#').ToArray();
-    foreach (var endpoint in allEmptyEndpoints)
+    var (curr, n) = p2Q.Dequeue();
+    if (!distanceMap.TryAdd(curr, n))
     {
-        p2Shortcuts.Add((anchorStart, endpoint));
+        continue;
     }
-}
-
-
-var p2SavingsLookup = GetCheatSavingsForPart2(orderedPath, p2Shortcuts);
-
-foreach (var (key,val) in p2SavingsLookup.Where(x=>x.Key>=50).OrderByDescending(x=>x.Key))
-{
-    Console.WriteLine($"{key}: {val}");
-}
-Console.WriteLine($"{p2SavingsLookup.Count}");
-HashSet<(int, int)> Bls((int,int) curr, int limit)
-{
-    var newSpace = new HashSet<(int, int)>();
-    var q = new SortedSet<(int, int, int)>([(curr.Item1, curr.Item2, 0)]);
-    while (q.Count > 0)
+    var (r, c) = curr;
+    foreach (var dir in directions)
     {
-        var (r, c, l) = q.Min();
-        q.Remove((r, c, l));
-        
-        if (l >= limit) continue;
-        foreach (var (dr, dc) in directions)
+        var (dr, dc) = dir;
+        var (rr, cc) = (r + dr, dc + c);
+        if (gridData[rr][cc] != '#')
         {
-            var (rr, cc) = (r + dr, c + dc);
-            if (rr >= 0 && rr < height && cc >= 0 && cc < width)
-            {
-                if (newSpace.Add((rr, cc)))
-                {
-                    q.Add((rr,cc,l+1));
-                }
-            }
+            p2Q.Enqueue(((rr,cc), n+1));
         }
     }
-    newSpace.Remove((curr.Item1, curr.Item2));
-    
-    return newSpace;
 }
+
+var p2Res = 0;
+var flattenMap = distanceMap.Select(x => (x.Key.Item1, x.Key.Item2, x.Value)).ToArray();
+
+for (int i = 0; i < flattenMap.Length-1; i++)
+{
+    for (int j = i + 1; j < flattenMap.Length; j++)
+    {
+        var (r1, c1, d1) = (flattenMap[i].Item1, flattenMap[i].Item2, flattenMap[i].Item3);
+        var (r2, c2, d2) = (flattenMap[j].Item1, flattenMap[j].Item2, flattenMap[j].Item3);
+        
+        var cheatPath = Math.Abs(r1 - r2) + Math.Abs(c1 - c2);
+        var path = Math.Abs(d2 - d1);
+        if (cheatPath <= 20 && cheatPath + 100 <= path)
+        {
+            p2Res++;
+        }
+    }
+}
+
+
+Console.WriteLine($"Part 2: {p2Res}");
+
 Dictionary<int, int> GetCheatSavings(List<(int, int)> path, HashSet<((int, int), (int, int))> cheats)
 {
     var counts = new Dictionary<int, int>();
@@ -126,51 +120,3 @@ Dictionary<int, int> GetCheatSavings(List<(int, int)> path, HashSet<((int, int),
     return counts;
 }
 
-
-Dictionary<int, int> GetCheatSavingsForPart2(List<(int, int)> path, HashSet<((int, int), (int, int))> cheats)
-{
-    var counts = new Dictionary<int, int>();
-
-    foreach (var ch in cheats)
-    {
-        var (anchorStart,  anchorEnd) = ch;
-        (int, int,int) resume = (-1, -1,-1);
-        var q = new Queue<(int, int, int)>([(anchorStart.Item1, anchorStart.Item2, 0)]);
-        var visitedInQ = new HashSet<(int, int)>();
-        while (q.Count > 0)
-        {
-            var curr = q.Dequeue();
-            var currNode = (curr.Item1, curr.Item2);
-            var (r, c) = currNode;
-            if (!visitedInQ.Add(currNode))
-            {
-                continue;
-            };
-            if (currNode == anchorEnd)
-            {
-                resume = curr;
-                break;
-            }
-
-            foreach (var d in directions)
-            {
-                var (dr, dc) = d;
-                var (rr, cc) = (dr + r, dc + c);
-                if (rr >= 0 && rr < height && cc >= 0 && cc < width)
-                {
-                    // var walls = gridData[rr][cc] == '#' ? curr.Item3 + 1: curr.Item3;
-                    // q.Enqueue((rr, cc,walls));
-                    q.Enqueue((rr, cc,curr.Item3+1));
-                }
-            }
-        }
-        var firstStep = path.FindIndex(x => x == anchorStart) ;
-        var reenterStep = path.FindIndex(x => x == anchorEnd);
-        var savings = reenterStep - firstStep - resume.Item3;
-        if (!counts.TryAdd(savings, 1))
-        {
-            counts[savings]++;
-        }
-    }
-    return counts;
-} 
