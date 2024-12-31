@@ -33,8 +33,6 @@ Direction[] DIRECTIONS = [
     new ('<', 0,-1),
     new ('^', -1,0),
 ];
-
-
 // Direction[] DIRECTIONS = [
 //     
 //     new ('>', 0,1),
@@ -46,20 +44,20 @@ Direction[] DIRECTIONS = [
 var shortestNumPads = GetShortestPathsForNum(numPads, new ButtonPress(' ', 3 ,0), 4, 3);
 var shortestDirPads = GetShortestPathsForNum(dirPads, new ButtonPress(' ', 0 ,0), 2, 3);
 
+Dictionary<(char, char, int), long> CACHE = new();
+
 // Console.WriteLine(shortestNumPads.Count);
 // Console.WriteLine(shortestDirPads.Count);
-var p1 = 0;
+long p1 = 0;
 foreach (var code in inputCodes)
 {
-    // var digits = code[..^1];
     var digits = code;
-
     var startPress = 'A';
-    var cnt = 0;
+    long cnt = 0;
     for (int i =0; i<digits.Length; i++)
     {
         var d = digits[i];
-        var calc = shortestNumPads[(startPress, d)].Select(x=>FindKeyPresses(x, 2)).ToArray();
+        var calc = shortestNumPads[(startPress, d)].Select(x=>FindKeyPresses(x, 25)).ToArray();
         cnt += calc.Min();
         startPress = d;
     }
@@ -72,19 +70,27 @@ foreach (var code in inputCodes)
 }
 Console.WriteLine($"Part 1: {p1}");
 
-int FindKeyPresses(string path, int depth)
+long FindKeyPresses(string path, int depth)
 {
     if (depth == 0)
     {
         return path.Length;
     }
-    var cnt = 0;
+    long cnt = 0;
     path = 'A' + path;
     for (int i = 0; i < path.Length-1; i++)
     {
-        var possiblePresses = shortestDirPads[(path[i], path[i + 1])].Select(x =>
-            FindKeyPresses(x, depth - 1)).ToArray();
-        cnt += possiblePresses.Min();
+        if (CACHE.ContainsKey((path[i], path[i + 1], depth)))
+        {
+            cnt += CACHE[(path[i], path[i + 1], depth)];
+        }
+        else
+        {
+            var possiblePresses = shortestDirPads[(path[i], path[i + 1])].Select(x =>
+                FindKeyPresses(x, depth - 1)).ToArray();
+            CACHE.Add((path[i], path[i + 1], depth), possiblePresses.Min());
+            cnt += possiblePresses.Min();
+        }
     }
     return cnt;
 }
@@ -92,6 +98,7 @@ int FindKeyPresses(string path, int depth)
 
 Dictionary<(char, char), List<string>> GetShortestPathsForNum(ButtonPress[] inputNumPad, ButtonPress escape, int maxR = 0, int maxC = 0)
 {
+    // referenced a smarter way of deriving the paths from https://github.com/maneatingape/advent-of-code-rust/blob/main/src/year2024/day21.rs
     var lookup = new Dictionary<(char, char), List<string>>();
     
     var (escR, escC) = (escape.r, escape.c);
