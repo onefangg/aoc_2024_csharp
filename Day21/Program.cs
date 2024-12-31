@@ -1,7 +1,7 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-string[] inputCodes = ["029A", "980A", "179A","456A", "379A"];
-// string[] inputCodes = ["480A", "143A", "983A","382A", "974A"];
+// string[] inputCodes = ["029A", "980A", "179A","456A", "379A"];
+string[] inputCodes = ["480A", "143A", "983A","382A", "974A"];
 // string[] inputCodes = ["379A"];
 // string[] inputCodes = ["179A","456A"];
 
@@ -59,12 +59,8 @@ foreach (var code in inputCodes)
     for (int i =0; i<digits.Length; i++)
     {
         var d = digits[i];
-        var numpadDist = shortestNumPads[(startPress, d)].MinBy(x=>x.Length)!;
-        // var fullPath = i == 0 ? startPress + numpadDist : numpadDist;
-        var fullPath =  numpadDist;
-        // Console.WriteLine($"Num pad path: {fullPath}");
-        var calc = FindKeyPresses(fullPath, 2);
-        cnt += calc;
+        var calc = shortestNumPads[(startPress, d)].Select(x=>FindKeyPresses(x, 2)).ToArray();
+        cnt += calc.Min();
         startPress = d;
     }
 
@@ -76,27 +72,21 @@ foreach (var code in inputCodes)
 }
 Console.WriteLine($"Part 1: {p1}");
 
-int FindKeyPresses(string path, int depth = 1)
+int FindKeyPresses(string path, int depth)
 {
-    
-    if (depth == 1)
+    if (depth == 0)
     {
-        var cnt = 0;
-        path = 'A' + path;
-        for (int i = 0; i < path.Length-1; i++)
-        {
-            cnt += shortestDirPads[(path[i], path[i+1])].MinBy(x=>x.Length)!.Length;
-        }
-        return cnt;
+        return path.Length;
     }
-    
-    var cnt2 = 0;
+    var cnt = 0;
     path = 'A' + path;
     for (int i = 0; i < path.Length-1; i++)
     {
-        cnt2 += FindKeyPresses(shortestDirPads[(path[i], path[i+1])].MinBy(x=>x.Length)!, depth -1);
+        var possiblePresses = shortestDirPads[(path[i], path[i + 1])].Select(x =>
+            FindKeyPresses(x, depth - 1)).ToArray();
+        cnt += possiblePresses.Min();
     }
-    return cnt2;
+    return cnt;
 }
 
 
@@ -136,18 +126,18 @@ Dictionary<(char, char), List<string>> GetShortestPathsForNum(ButtonPress[] inpu
 
             var buildMultiplePaths = new List<string>();
             
+            if (!(sc == escC && er == escR))
+            {
+                buildMultiplePaths.Add(string.Join("", Enumerable.Repeat(verticalPath, verticalOffset)
+                    .Concat(Enumerable.Repeat(horizontalPath, horizontalOffset))
+                    .Concat(['A'])));
+            }
             
             if (!(ec == escC && sr == escR))
             {
                 buildMultiplePaths.Add(string.Join("", Enumerable.Repeat(horizontalPath, horizontalOffset)
                     .Concat(Enumerable.Repeat(verticalPath, verticalOffset))
                     .Concat(['A'])));
-            }
-            if (!(sc == escC && er == escR))
-            {
-                buildMultiplePaths.Add(string.Join("", Enumerable.Repeat(verticalPath, verticalOffset)
-                .Concat(Enumerable.Repeat(horizontalPath, horizontalOffset))
-                .Concat(['A'])));
             }
             if (!lookup.TryAdd(fromToEnd, buildMultiplePaths))
             {
@@ -156,11 +146,11 @@ Dictionary<(char, char), List<string>> GetShortestPathsForNum(ButtonPress[] inpu
         }
     }
     
-    foreach (var (k, v) in lookup)
-    {
-        var minLen = v.Min(x => x.Length);
-        lookup[k] = v.Where(x => x.Length <= minLen).Distinct().ToList();
-    }
+    // foreach (var (k, v) in lookup)
+    // {
+    //     var minLen = v.Min(x => x.Length);
+    //     lookup[k] = v.Where(x => x.Length <= minLen).Distinct().ToList();
+    // }
     return lookup;
 }
 
